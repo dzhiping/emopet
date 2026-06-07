@@ -5,115 +5,181 @@ import UIKit
 /// 托斯卡纳客厅 2.5D 主场景：[全屏背景] → [宠物 + 环绕气泡] → [悬浮磨砂 UI]
 struct TuscanyLivingRoomView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var roomClock = RoomClock()
     @State private var selectedModule: PetModuleTab = .physiological
+    @State private var showSettings = false
 
     private var lang: PetLanguage { appState.uiLanguage }
 
     var body: some View {
         GeometryReader { geo in
-            let petSize = min(geo.size.width, geo.size.height) * 0.46
-
             ZStack {
                 TuscanyRoomBackground(timeOfDay: roomClock.timeOfDay)
 
-                VStack(spacing: 0) {
-                    topHUD
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
+                fullScreenPetStage(in: geo)
 
-                    Spacer()
+                scenePropsOverlay(in: geo)
 
-                    ZStack {
-                        petStage(in: geo, petSize: petSize)
-                        moduleBubbleLayer(width: geo.size.width)
-                    }
-                    .frame(height: geo.size.height * 0.52)
+                HStack(alignment: .center, spacing: 0) {
+                    leftActionColumn
+                        .padding(.leading, 12)
+                        .frame(width: 58)
 
-                    Spacer(minLength: geo.size.height * 0.06)
+                    Spacer(minLength: 0)
 
-                    floatingTabBar
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, max(geo.safeAreaInsets.bottom, 16) + 8)
+                    GlassStatPanel()
+                        .environmentObject(appState)
+                        .padding(.trailing, 10)
+                        .frame(width: min(118, geo.size.width * 0.28))
                 }
+                .padding(.bottom, tabBarReservedHeight(in: geo))
+
+                VStack {
+                    speechStack
+                        .padding(.top, 4)
+                    Spacer()
+                }
+                .padding(.horizontal, 80)
+                .padding(.bottom, tabBarReservedHeight(in: geo))
+            }
+            .overlay(alignment: .top) {
+                topChrome
+                    .padding(.horizontal, 16)
+                    .padding(.top, geo.safeAreaInsets.top + 4)
+            }
+            .overlay(alignment: .bottom) {
+                floatingTabBar
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, max(geo.safeAreaInsets.bottom, 10))
             }
         }
-        .ignoresSafeArea()
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(appState)
+        }
         .onAppear {
             appState.petAssets.preload(species: appState.pet.speciesID)
-            appState.petAssets.sync(snapshot: appState.pet)
+            appState.petAssets.activatePlayback(with: appState.pet)
         }
         .onChange(of: appState.pet.speciesID) { species in
             appState.petAssets.preload(species: species)
-            appState.petAssets.sync(snapshot: appState.pet)
+            appState.petAssets.activatePlayback(with: appState.pet)
         }
         .onChange(of: appState.visualState) { _ in
             appState.petAssets.sync(snapshot: appState.pet)
         }
-    }
-
-    // MARK: - 顶栏
-
-    private var topHUD: some View {
-        HStack(alignment: .top, spacing: 12) {
-            if let owned = appState.activeOwnedPet {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(owned.adoption.petName)
-                        .font(.title3.weight(.bold))
-                    Text(L10n.text(appState.pet.stage.l10nKey, language: lang))
-                        .font(.caption)
-                        .opacity(0.82)
-                }
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .glassCard(cornerRadius: 14)
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                appState.petAssets.activatePlayback(with: appState.pet)
             }
-            Spacer(minLength: 8)
-            GlassStatPanel()
-                .environmentObject(appState)
         }
     }
 
-    // MARK: - 宠物舞台（对齐地面透视线）
+    private func tabBarReservedHeight(in geo: GeometryProxy) -> CGFloat {
+        max(geo.safeAreaInsets.bottom, 10) + 72
+    }
 
-    private func petStage(in geo: GeometryProxy, petSize: CGFloat) -> some View {
+    // MARK: - 顶栏：成长阶段居中 + 设置按钮右上
+
+    private var topChrome: some View {
         ZStack {
-            if appState.petAssets.useFallbackRenderer {
+            growthStageBadge
+
+            HStack {
+                Spacer()
+                settingsButton
+            }
+        }
+        .frame(minHeight: 40)
+    }
+
+    private var growthStageBadge: some View {
+        VStack(spacing: 3) {
+            if let owned = appState.activeOwnedPet {
+                Text(owned.adoption.petName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary.opacity(0.78))
+                    .lineLimit(1)
+            }
+            Text(L10n.text(appState.pet.stage.l10nKey, language: lang))
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 9)
+        .glassCard(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(L10n.text(appState.pet.stage.l10nKey, language: lang))
+    }
+
+    private var settingsButton: some View {
+        Button {
+            showSettings = true
+        } label: {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.primary.opacity(0.88))
+                .frame(width: 40, height: 40)
+                .background {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color.white.opacity(0.38), lineWidth: 0.8)
+                        }
+                }
+        }
+        .buttonStyle(SpringyButtonStyle())
+        .accessibilityLabel(L10n.text("settings.title", language: lang))
+    }
+
+    // MARK: - 全屏宠物舞台
+
+    private func fullScreenPetStage(in geo: GeometryProxy) -> some View {
+        let screenW = geo.size.width
+        let screenH = geo.size.height
+        let heroSize = max(screenW, screenH) * 0.92
+        let showVideo = appState.petAssets.hasVideoAsset || appState.petAssets.hasBundledVideo
+
+        return ZStack {
+            if showVideo {
+                TransparentVideoPlayer(
+                    player: appState.petAssets.queuePlayer,
+                    allowsPetHitTesting: false,
+                    fillScreen: true
+                )
+                .id(appState.petAssets.playbackRevision)
+                .frame(width: screenW, height: screenH)
+            } else {
                 CartoonPetView(
                     species: appState.pet.speciesID,
                     state: appState.visualState,
-                    size: petSize
+                    size: heroSize
                 )
-                .shadow(color: .black.opacity(0.22), radius: 18, x: 0, y: 12)
-            } else {
-                TransparentVideoPlayer(
-                    player: appState.petAssets.queuePlayer,
-                    allowsPetHitTesting: false
-                )
-                .frame(width: petSize * 1.15, height: petSize * 1.15)
+                .shadow(color: .black.opacity(0.18), radius: 20, x: 0, y: 10)
             }
-
-            sceneProps
-            speechStack(offsetY: -petSize * 0.62)
         }
-        .offset(y: geo.size.height * 0.04)
+        .frame(width: screenW, height: screenH)
+        .clipped()
     }
 
     @ViewBuilder
-    private var sceneProps: some View {
-        if appState.pet.wasteNeedsCleaning {
-            WastePropView()
-                .offset(x: -72, y: 64)
-        }
-        if appState.pet.stats.hunger < 40 {
-            EmptyBowlPropView()
-                .offset(x: 78, y: 72)
+    private func scenePropsOverlay(in geo: GeometryProxy) -> some View {
+        ZStack {
+            if appState.pet.wasteNeedsCleaning {
+                WastePropView()
+                    .offset(x: -geo.size.width * 0.1, y: geo.size.height * 0.1)
+            }
+            if appState.pet.stats.hunger < 40 {
+                EmptyBowlPropView()
+                    .offset(x: geo.size.width * 0.1, y: geo.size.height * 0.12)
+            }
         }
     }
 
     @ViewBuilder
-    private func speechStack(offsetY: CGFloat) -> some View {
+    private var speechStack: some View {
         VStack(spacing: 8) {
             if let msg = appState.proactiveMessage {
                 PetSpeechBubble(text: msg)
@@ -132,72 +198,68 @@ struct TuscanyLivingRoomView: View {
                 .overlay(Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.4), lineWidth: 0.8))
             }
         }
-        .offset(y: offsetY)
     }
 
-    // MARK: - 模块气泡层（环绕宠物）
+    // MARK: - 左侧互动按钮列
 
     @ViewBuilder
-    private func moduleBubbleLayer(width: CGFloat) -> some View {
-        let radiusX = width * 0.38
-        let radiusY = width * 0.22
-
-        ZStack {
+    private var leftActionColumn: some View {
+        VStack(spacing: 12) {
             switch selectedModule {
             case .physiological:
-                bubble(icon: "fork.knife", tint: .orange, x: -radiusX, y: -radiusY * 0.5) {
+                actionBubble(icon: "fork.knife", tint: .orange) {
                     appState.perform(.feed(.regularMeal), oneShot: .feed)
                 }
-                bubble(icon: "carrot.fill", tint: .green, x: -radiusX * 0.82, y: radiusY * 0.35) {
+                actionBubble(icon: "carrot.fill", tint: .green) {
                     appState.perform(.feed(.snack), oneShot: .snack)
                 }
-                bubble(icon: "shower.fill", tint: .cyan, x: radiusX, y: -radiusY * 0.45) {
+                actionBubble(icon: "shower.fill", tint: .cyan) {
                     appState.perform(.bathe, oneShot: .bath)
                 }
-                bubble(icon: "trash.fill", tint: .brown, x: radiusX * 0.85, y: radiusY * 0.4) {
+                actionBubble(icon: "trash.fill", tint: .brown) {
                     appState.perform(.cleanWaste, oneShot: .clean)
                 }
                 if appState.pet.sickness == .sick {
-                    bubble(icon: "pills.fill", tint: .pink, x: 0, y: radiusY * 0.95) {
+                    actionBubble(icon: "pills.fill", tint: .pink) {
                         appState.perform(.medicine, oneShot: .medicine)
                     }
                 }
             case .interaction:
-                bubble(icon: "hand.wave.fill", tint: .yellow, x: -radiusX * 0.9, y: 0) {
+                actionBubble(icon: "hand.wave.fill", tint: .yellow) {
                     appState.perform(.pet, oneShot: .pet)
                 }
-                bubble(icon: "gamecontroller.fill", tint: .purple, x: radiusX * 0.9, y: 0) {
+                actionBubble(icon: "gamecontroller.fill", tint: .purple) {
                     appState.perform(.play, oneShot: .play)
                 }
                 if appState.pet.emotion.requiresApology {
-                    bubble(icon: "heart.fill", tint: .red, x: 0, y: radiusY) {
+                    actionBubble(icon: "heart.fill", tint: .red) {
                         appState.perform(.apologize, oneShot: .apologize)
                     }
                 }
             case .dialogue:
                 if appState.pet.unlocked.vocabularyBudding {
-                    bubble(icon: "bubble.left.fill", tint: .mint, x: -radiusX * 0.75, y: -radiusY * 0.2) {
+                    actionBubble(icon: "bubble.left.fill", tint: .mint) {
                         appState.speak(topic: .greeting)
                     }
-                    bubble(icon: "clock.arrow.circlepath", tint: .indigo, x: radiusX * 0.75, y: -radiusY * 0.2) {
+                    actionBubble(icon: "clock.arrow.circlepath", tint: .indigo) {
                         appState.speak(topic: .memory)
                     }
-                    bubble(icon: "leaf.fill", tint: .teal, x: 0, y: radiusY * 0.85) {
+                    actionBubble(icon: "leaf.fill", tint: .teal) {
                         appState.speak(topic: .comfort)
                     }
                 }
             case .assistant:
                 if appState.pet.unlocked.lifeAssistant {
-                    bubble(icon: "alarm.fill", tint: .orange, x: -radiusX, y: -radiusY * 0.3) {
+                    actionBubble(icon: "alarm.fill", tint: .orange) {
                         appState.playAssistantAnimation(.alarm)
                     }
-                    bubble(icon: "book.fill", tint: .blue, x: -radiusX * 0.5, y: radiusY * 0.5) {
+                    actionBubble(icon: "book.fill", tint: .blue) {
                         appState.playAssistantAnimation(.study)
                     }
-                    bubble(icon: "checkmark.circle.fill", tint: .green, x: radiusX * 0.5, y: radiusY * 0.5) {
+                    actionBubble(icon: "checkmark.circle.fill", tint: .green) {
                         appState.playAssistantAnimation(.studyDone)
                     }
-                    bubble(icon: "figure.run", tint: .cyan, x: radiusX, y: -radiusY * 0.3) {
+                    actionBubble(icon: "figure.run", tint: .cyan) {
                         appState.playAssistantAnimation(.exercise)
                     }
                 }
@@ -206,9 +268,8 @@ struct TuscanyLivingRoomView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.78), value: selectedModule)
     }
 
-    private func bubble(icon: String, tint: Color, x: CGFloat, y: CGFloat, action: @escaping () -> Void) -> some View {
-        PetActionBubble(icon: icon, tint: tint, action: action)
-            .offset(x: x, y: y)
+    private func actionBubble(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        PetActionBubble(icon: icon, tint: tint, size: 50, action: action)
     }
 
     // MARK: - 悬浮胶囊 TabBar
@@ -238,6 +299,7 @@ struct TuscanyLivingRoomView: View {
                 }
                 .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)
         }
+        .zIndex(20)
     }
 }
 
@@ -353,28 +415,32 @@ struct GlassStatPanel: View {
     private var lang: PetLanguage { appState.uiLanguage }
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 9) {
+        VStack(alignment: .trailing, spacing: 7) {
             ForEach(appState.pet.stats.indicatorItems()) { item in
-                HStack(spacing: 7) {
-                    Image(systemName: item.level.iconName)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(levelColor(item))
-                    Text(L10n.text(item.kind.l10nKey, language: lang))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.primary.opacity(0.88))
-                    HStack(spacing: 3) {
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: item.level.iconName)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(levelColor(item))
+                        Text(L10n.text(item.kind.l10nKey, language: lang))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.88))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    HStack(spacing: 2) {
                         ForEach(0..<6, id: \.self) { i in
                             Capsule()
                                 .fill(i <= item.level.rawValue ? levelColor(item) : Color.primary.opacity(0.12))
-                                .frame(width: 11, height: 4)
+                                .frame(width: 9, height: 3.5)
                         }
                     }
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .glassCard(cornerRadius: 16)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .glassCard(cornerRadius: 14)
     }
 
     private func levelColor(_ item: StatIndicatorItem) -> Color {

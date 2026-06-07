@@ -244,12 +244,44 @@ public enum PetAnimationCatalog {
         .feed, .snack, .bath, .clean, .pet, .play,
     ]
 
-    public static func hasBundledAsset(_ clip: PetVideoClip) -> Bool {
-        Bundle.main.url(
+    public static func hasBundledAsset(_ clip: PetVideoClip, species: PetSpeciesID, bundle: Bundle = .main) -> Bool {
+        resolveBundledURL(for: clip, species: species, bundle: bundle) != nil
+    }
+
+    /// 查找 Bundle 内视频：精确路径 → 同物种默认 Idle → mp4 扩展名
+    public static func resolveBundledURL(
+        for clip: PetVideoClip,
+        species: PetSpeciesID,
+        allowSpeciesFallback: Bool = true,
+        bundle: Bundle = .main
+    ) -> URL? {
+        if let exact = bundleURL(for: clip, bundle: bundle) { return exact }
+
+        if allowSpeciesFallback {
+            let defaultIdle = idleLoop(species: species, state: .idle)
+            if clip.relativePath != defaultIdle.relativePath,
+               let fallback = bundleURL(for: defaultIdle, bundle: bundle) {
+                return fallback
+            }
+        }
+
+        if clip.fileExtension != "mp4",
+           let mp4 = bundleURL(
+               for: PetVideoClip(relativePath: clip.relativePath, fileExtension: "mp4", loops: clip.loops),
+               bundle: bundle
+           ) {
+            return mp4
+        }
+
+        return nil
+    }
+
+    private static func bundleURL(for clip: PetVideoClip, bundle: Bundle) -> URL? {
+        bundle.url(
             forResource: clip.relativePath,
             withExtension: clip.fileExtension,
             subdirectory: "PetVideos"
-        ) != nil
+        )
     }
 
     /// App 启动预加载的核心片段

@@ -19,6 +19,7 @@
 		E100000000000009 /* TuscanyLivingRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000A /* TuscanyLivingRoomView.swift */; };
 		E10000000000000B /* TransparentVideoPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000C /* TransparentVideoPlayer.swift */; };
 		E100000000000010 /* TuscanyUIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E100000000000011 /* TuscanyUIComponents.swift */; };
+		E100000000000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E100000000000013 /* SettingsView.swift */; };
 		E10000000000000D /* PetVideos in Resources */ = {isa = PBXBuildFile; fileRef = E10000000000000E /* PetVideos */; };
 		A100000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A100000000000015 /* Assets.xcassets */; };
 		C100000000000001 /* EmoPetKit in Frameworks */ = {isa = PBXBuildFile; productRef = D100000000000001 /* EmoPetKit */; };
@@ -44,6 +45,7 @@
 		E10000000000000A /* TuscanyLivingRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuscanyLivingRoomView.swift; sourceTree = "<group>"; };
 		E10000000000000C /* TransparentVideoPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransparentVideoPlayer.swift; sourceTree = "<group>"; };
 		E100000000000011 /* TuscanyUIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuscanyUIComponents.swift; sourceTree = "<group>"; };
+		E100000000000013 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E10000000000000E /* PetVideos */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PetVideos; sourceTree = "<group>"; };
 		A100000000000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A100000000000021 /* EmoPet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EmoPet.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -101,6 +103,7 @@
 				E100000000000003 /* AuthViews.swift */,
 				E100000000000004 /* AdoptionView.swift */,
 				E100000000000006 /* HomeView.swift */,
+				E100000000000013 /* SettingsView.swift */,
 				E10000000000000A /* TuscanyLivingRoomView.swift */,
 				E100000000000011 /* TuscanyUIComponents.swift */,
 				E10000000000000F /* Media */,
@@ -218,6 +221,7 @@
 				A10000000000001C /* AuthViews.swift in Sources */,
 				A10000000000001E /* AdoptionView.swift in Sources */,
 				E100000000000005 /* HomeView.swift in Sources */,
+				E100000000000012 /* SettingsView.swift in Sources */,
 				E100000000000009 /* TuscanyLivingRoomView.swift in Sources */,
 				E100000000000010 /* TuscanyUIComponents.swift in Sources */,
 				E10000000000000B /* TransparentVideoPlayer.swift in Sources */,

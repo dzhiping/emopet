@@ -23,6 +23,13 @@ final class AppState: ObservableObject {
     @Published var authError: String?
     @Published var petAssets = PetAssetManager()
 
+    /// 设置页选择的 App 界面语言（持久化）
+    @Published var appLanguageOverride: PetLanguage? = {
+        guard let raw = UserDefaults.standard.string(forKey: "app.uiLanguage"),
+              let lang = PetLanguage(rawValue: raw) else { return nil }
+        return lang
+    }()
+
     private var assessment = PersonalityAssessmentEngine()
     private let store: LocalDataStore
     private let auth = AuthService()
@@ -48,7 +55,17 @@ final class AppState: ObservableObject {
     }
 
     var uiLanguage: PetLanguage {
-        activeOwnedPet?.adoption.language ?? .chinese
+        appLanguageOverride ?? activeOwnedPet?.adoption.language ?? .chinese
+    }
+
+    func setAppLanguage(_ language: PetLanguage) {
+        appLanguageOverride = language
+        UserDefaults.standard.set(language.rawValue, forKey: "app.uiLanguage")
+        guard var session, let id = session.activePetID,
+              let index = session.pets.firstIndex(where: { $0.id == id }) else { return }
+        session.pets[index].adoption.language = language
+        self.session = session
+        try? store.save(session: session)
     }
 
     var canAdoptMore: Bool {
@@ -222,10 +239,12 @@ final class AppState: ObservableObject {
         try? store.save(session: session)
     }
 
-    func refreshFromEngine() {
+    func refreshFromEngine(syncAssets: Bool = true) {
         pet = engine.snapshot
         proactiveMessage = ProactiveInteractionGenerator().suggest(for: pet)?.message
-        petAssets.sync(snapshot: pet)
+        if syncAssets {
+            petAssets.sync(snapshot: pet)
+        }
     }
 
     func save() {
@@ -255,8 +274,10 @@ final class AppState: ObservableObject {
         case .completeReunion:
             events = engine.completeReunion()
         }
-        refreshFromEngine()
-        if let oneShot { petAssets.playOneShot(oneShot) }
+        refreshFromEngine(syncAssets: oneShot == nil)
+        if let oneShot {
+            petAssets.playOneShot(oneShot, resumeWith: pet)
+        }
         save()
         _ = events
     }
